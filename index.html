@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>淘宝差评监控 · VOC</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <div class="brand-row">
+            <div class="brand-mark" aria-hidden="true">VOC</div>
+            <h1>淘宝差评监控 · VOC</h1>
+          </div>
+          <p>自动抓取中差评/低星评论 - 提取痛点 - 生成改进清单 - 导出 Excel</p>
+        </div>
+        <div class="status-pill" id="storageStatus">本地演示模式</div>
+      </header>
+
+      <nav class="tabs" aria-label="主导航">
+        <button class="tab active" data-tab="watchlist">监控列表</button>
+        <button class="tab" data-tab="scan">立即扫描</button>
+        <button class="tab" data-tab="voc">VOC 表</button>
+        <button class="tab" data-tab="report">AI 报告</button>
+        <button class="tab" data-tab="settings">设置</button>
+      </nav>
+
+      <section class="tab-panel active" id="watchlist">
+        <div class="section-heading">
+          <h2>监控列表</h2>
+          <p>把要监控的淘宝/天猫商品链接加入列表，扫描会读取所有启用项。</p>
+        </div>
+
+        <form class="form-grid monitor-form" id="monitorForm">
+          <label>
+            淘宝/天猫商品链接
+            <input id="productUrl" type="url" placeholder="https://item.taobao.com/item.htm?id=..." required />
+          </label>
+          <label>
+            商品标签
+            <input id="productLabel" type="text" placeholder="如：春款连衣裙 / 宠物垫子" required />
+          </label>
+          <label>
+            店铺名
+            <input id="shopName" type="text" placeholder="如：示例旗舰店" />
+          </label>
+          <label>
+            类目
+            <input id="category" type="text" placeholder="如：女装 / 家居 / 宠物用品" />
+          </label>
+          <button type="submit" class="primary">添加</button>
+        </form>
+
+        <div class="notice">
+          原型不会绕过淘宝登录、验证码或平台限制。真实采集建议先手动登录，再保存可访问页面或使用授权数据。
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>商品ID</th>
+                <th>商品标签</th>
+                <th>店铺名</th>
+                <th>类目</th>
+                <th>平台</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="monitorRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="scan">
+        <div class="section-heading">
+          <h2>立即扫描</h2>
+          <p>扫描启用中的商品。原型会优先使用导入数据；没有导入时使用内置淘宝评价样例。</p>
+        </div>
+
+        <div class="scan-layout">
+          <div class="action-panel">
+            <dl class="metrics">
+              <div>
+                <dt>启用商品</dt>
+                <dd id="enabledCount">0</dd>
+              </div>
+              <div>
+                <dt>本次新增</dt>
+                <dd id="newCount">0</dd>
+              </div>
+              <div>
+                <dt>累计 VOC</dt>
+                <dd id="totalReviewCount">0</dd>
+              </div>
+            </dl>
+            <button id="runScan" class="danger">立即扫描</button>
+            <div class="progress">
+              <div id="progressBar"></div>
+            </div>
+            <p class="scan-message" id="scanMessage">等待扫描。</p>
+          </div>
+
+          <div class="action-panel">
+            <h3>导入兜底数据</h3>
+            <p>支持 CSV 文件，字段可包含：商品ID、商品标签、SKU/规格、评分/评价类型、评价正文、追评、评价时间、图片数。</p>
+            <input id="csvInput" type="file" accept=".csv,text/csv" />
+            <textarea id="htmlSnapshot" placeholder="也可以粘贴淘宝评价页 HTML/文本快照，系统会提取明显的负向语句。"></textarea>
+            <button id="importSnapshot" class="secondary">导入快照文本</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>事件</th>
+                <th>结果</th>
+              </tr>
+            </thead>
+            <tbody id="scanLogRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="voc">
+        <div class="section-heading">
+          <h2>VOC 表</h2>
+          <p>集中查看中差评、追评和高风险关键词，支持筛选与导出。</p>
+        </div>
+
+        <div class="filters">
+          <label>
+            商品
+            <select id="filterProduct"></select>
+          </label>
+          <label>
+            评价类型
+            <select id="filterRating">
+              <option value="">全部</option>
+              <option value="差评">差评</option>
+              <option value="中评">中评</option>
+              <option value="低星">低星</option>
+              <option value="关键词命中">关键词命中</option>
+            </select>
+          </label>
+          <label>
+            痛点分类
+            <select id="filterPainPoint"></select>
+          </label>
+          <label>
+            处理状态
+            <select id="filterStatus">
+              <option value="">全部</option>
+              <option value="待处理">待处理</option>
+              <option value="跟进中">跟进中</option>
+              <option value="已解决">已解决</option>
+            </select>
+          </label>
+          <label>
+            关键词搜索
+            <input id="filterKeyword" type="search" placeholder="正文 / 追评 / SKU" />
+          </label>
+          <button id="exportVoc" class="secondary">导出 VOC 明细 Excel</button>
+        </div>
+
+        <div class="table-wrap wide">
+          <table>
+            <thead>
+              <tr>
+                <th>抓取日期</th>
+                <th>商品ID</th>
+                <th>商品标签</th>
+                <th>SKU/规格</th>
+                <th>平台</th>
+                <th>评分/评价类型</th>
+                <th>评价时间</th>
+                <th>评价正文</th>
+                <th>追评</th>
+                <th>图片数</th>
+                <th>情绪</th>
+                <th>痛点分类</th>
+                <th>严重度</th>
+                <th>处理状态</th>
+              </tr>
+            </thead>
+            <tbody id="vocRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="report">
+        <div class="section-heading">
+          <h2>AI 报告</h2>
+          <p>按扫描批次汇总痛点、严重预警、典型原文和产品改进清单。</p>
+        </div>
+
+        <div class="report-toolbar">
+          <label>
+            选择一次扫描
+            <select id="reportScanSelect"></select>
+          </label>
+          <button id="regenerateReport" class="primary">重跑最新</button>
+          <button id="exportReportMd" class="secondary">导出 Markdown</button>
+          <button id="exportReportExcel" class="secondary">导出报告 Excel</button>
+        </div>
+
+        <article class="report-output" id="reportOutput"></article>
+      </section>
+
+      <section class="tab-panel" id="settings">
+        <div class="section-heading">
+          <h2>设置</h2>
+          <p>维护采集边界、差评关键词和痛点分类。原型设置会保存在本地浏览器。</p>
+        </div>
+
+        <div class="settings-grid">
+          <label>
+            单商品最多采集页数
+            <input id="maxPages" type="number" min="1" max="20" />
+          </label>
+          <label>
+            单次最多商品数
+            <input id="maxProducts" type="number" min="1" max="50" />
+          </label>
+          <label>
+            采集间隔（秒）
+            <input id="scanInterval" type="number" min="1" max="120" />
+          </label>
+          <label class="span-2">
+            差评关键词
+            <textarea id="negativeKeywords"></textarea>
+          </label>
+          <label class="span-2">
+            痛点分类
+            <textarea id="painPointCategories"></textarea>
+          </label>
+          <button id="saveSettings" class="primary">保存设置</button>
+          <button id="resetDemo" class="secondary">重置演示数据</button>
+        </div>
+
+        <div class="notice">
+          可选采集脚本：运行 <code>npm install</code> 后使用 <code>npm run scrape:taobao -- "商品链接"</code>。
+          脚本会打开浏览器供你手动登录，不处理验证码，也不会尝试绕过平台限制。
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
